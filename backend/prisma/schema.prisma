@@ -1,0 +1,120 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Comment {
+  id        String   @id
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+  taskId    String
+  userId    String
+  Task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  User      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([userId])
+}
+
+model Organization {
+  id                 String               @id
+  name               String
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime
+  OrganizationMember OrganizationMember[]
+  Project            Project[]
+
+  @@index([name])
+}
+
+model OrganizationMember {
+  id             String           @id
+  role           OrganizationRole @default(MEMBER)
+  joinedAt       DateTime         @default(now())
+  userId         String
+  organizationId String
+  Organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  User           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@index([organizationId])
+  @@index([userId])
+}
+
+model Project {
+  id             String       @id
+  name           String
+  description    String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime
+  organizationId String
+  Organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  Task           Task[]
+
+  @@index([organizationId])
+}
+
+model Task {
+  id                         String       @id
+  title                      String
+  description                String?
+  status                     TaskStatus   @default(TODO)
+  priority                   TaskPriority @default(MEDIUM)
+  dueDate                    DateTime?
+  createdAt                  DateTime     @default(now())
+  updatedAt                  DateTime
+  projectId                  String
+  creatorId                  String
+  assigneeId                 String?
+  Comment                    Comment[]
+  User_Task_assigneeIdToUser User?        @relation("Task_assigneeIdToUser", fields: [assigneeId], references: [id])
+  User_Task_creatorIdToUser  User         @relation("Task_creatorIdToUser", fields: [creatorId], references: [id])
+  Project                    Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([assigneeId])
+  @@index([creatorId])
+  @@index([priority])
+  @@index([projectId])
+  @@index([status])
+}
+
+model User {
+  id                         String               @id
+  email                      String               @unique
+  passwordHash               String
+  name                       String
+  createdAt                  DateTime             @default(now())
+  updatedAt                  DateTime
+  Comment                    Comment[]
+  OrganizationMember         OrganizationMember[]
+  Task_Task_assigneeIdToUser Task[]               @relation("Task_assigneeIdToUser")
+  Task_Task_creatorIdToUser  Task[]               @relation("Task_creatorIdToUser")
+
+  @@index([email])
+}
+
+enum OrganizationRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  DONE
+}
