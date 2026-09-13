@@ -1,41 +1,54 @@
-import API from "./api"
+﻿import API from "./api";
 
-export async function getProjects() {
-  const response = await API.get("/projects")
-  return response.data
-}
+export type Project = {
+  id: string;
+  name: string;
+  description?: string | null;
+  organizationId: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
 
-export async function getProject(id: string) {
-  const response = await API.get(`/projects/${id}`)
-  return response.data
+export async function getProjects(
+  organizationId: string,
+  search = "",
+): Promise<Project[]> {
+  const response = await API.get(
+    `/projects/organization/${organizationId}`,
+    {
+      params: {
+        page: 1,
+        limit: 50,
+        ...(search ? { search } : {}),
+      },
+    },
+  );
+
+  return response.data?.projects ?? response.data ?? [];
 }
 
 export async function createProject(
   name: string,
+  description: string,
   organizationId: string,
-  description = "",
 ) {
   const response = await API.post("/projects", {
     name,
-    description,
     organizationId,
-  })
+    ...(description ? { description } : {}),
+  });
 
-  return response.data
+  return response.data;
 }
 
-export async function updateProject(
-  id: string,
-  data: {
-    name?: string
-    description?: string
-  },
-) {
-  const response = await API.patch(`/projects/${id}`, data)
-  return response.data
+export async function deleteProject(projectId: string) {
+  const response = await API.delete(`/projects/${projectId}`);
+
+  return response.data;
 }
 
-export async function deleteProject(id: string) {
-  const response = await API.delete(`/projects/${id}`)
-  return response.data
+export async function getProject(projectId: string) {
+  const response = await API.get(`/projects/${projectId}`);
+
+  return response.data;
 }

@@ -1,107 +1,220 @@
-import { useState } from "react"
-import { createTask, deleteTask, getTasks, updateTask } from "../services/tasks"
+﻿import { useEffect, useState } from "react";
+import {
+  createTask,
+  deleteTask,
+  getTasks,
+  updateTask,
+  type Task,
+  type TaskStatus,
+} from "../services/tasks";
 
-function Tasks() {
-  const [projectId, setProjectId] = useState("")
-  const [tasks, setTasks] = useState<any[]>([])
-  const [title, setTitle] = useState("")
-  const [loading, setLoading] = useState(false)
+export default function Tasks() {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [projectId, setProjectId] = useState("");
+  const [title, setTitle] = useState("");
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  async function load() {
-    if (!projectId.trim()) return
-
-    setLoading(true)
+  async function loadTasks() {
+    if (!projectId.trim()) {
+      setTasks([]);
+      return;
+    }
 
     try {
-      const data = await getTasks(projectId)
-      setTasks(data.tasks || [])
-    } catch (error) {
-      console.error(error)
-      setTasks([])
+      setLoading(true);
+
+      const data = await getTasks(projectId.trim());
+
+      setTasks(data);
+    } catch (error: any) {
+      setMessage(
+        error?.response?.data?.message ||
+          error?.message ||
+          "Failed to load tasks",
+      );
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
-  async function create() {
+  async function handleCreate() {
     if (!title.trim() || !projectId.trim()) {
-      alert("Enter project ID and task title")
-      return
+      setMessage("Project ID and task title are required.");
+      return;
     }
 
     try {
-      await createTask(title, projectId)
-      setTitle("")
-      await load()
-    } catch (error) {
-      console.error(error)
-      alert("Could not create task")
+      await createTask(
+        title.trim(),
+        projectId.trim(),
+      );
+
+      setTitle("");
+      setMessage("Task created successfully.");
+
+      await loadTasks();
+    } catch (error: any) {
+      setMessage(
+        error?.response?.data?.message ||
+          error?.message ||
+          "Failed to create task",
+      );
     }
   }
 
-  async function status(id: string, value: string) {
+  async function handleStatusChange(
+    id: string,
+    value: string,
+  ) {
+    const status = value as TaskStatus;
+
     try {
-      await updateTask(id, { status: value })
-      await load()
-    } catch (error) {
-      console.error(error)
+      await updateTask(id, {
+        status,
+      });
+
+      await loadTasks();
+    } catch (error: any) {
+      setMessage(
+        error?.response?.data?.message ||
+          error?.message ||
+          "Failed to update task",
+      );
     }
   }
 
-  async function remove(id: string) {
+  async function handleDelete(id: string) {
+    const confirmed = window.confirm(
+      "Delete this task?",
+    );
+
+    if (!confirmed) return;
+
     try {
-      await deleteTask(id)
-      await load()
-    } catch (error) {
-      console.error(error)
+      await deleteTask(id);
+      await loadTasks();
+    } catch (error: any) {
+      setMessage(
+        error?.response?.data?.message ||
+          error?.message ||
+          "Failed to delete task",
+      );
     }
   }
+
+  useEffect(() => {
+    loadTasks();
+  }, [projectId]);
 
   return (
-    <main>
-      <h1>Tasks</h1>
+    <div className="page">
+      <div className="pageHeader">
+        <div>
+          <h1>Tasks</h1>
+          <p>Manage project tasks and workflow status.</p>
+        </div>
+      </div>
 
-      <section>
+      <div className="formPanel">
+        <h2>Task setup</h2>
+
         <input
-          placeholder="Project ID"
           value={projectId}
-          onChange={(e) => setProjectId(e.target.value)}
+          onChange={(event) =>
+            setProjectId(event.target.value)
+          }
+          placeholder="Project ID"
         />
-
-        <button onClick={load}>Load Tasks</button>
 
         <input
-          placeholder="New task title"
           value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          onChange={(event) =>
+            setTitle(event.target.value)
+          }
+          placeholder="Task title"
         />
 
-        <button onClick={create}>Create Task</button>
-      </section>
+        <button onClick={handleCreate}>
+          Create task
+        </button>
 
-      {loading && <p>Loading tasks...</p>}
+        <button
+          className="secondaryButton"
+          onClick={loadTasks}
+        >
+          Refresh tasks
+        </button>
 
-      {tasks.map((task) => (
-        <section key={task.id}>
-          <h2>{task.title}</h2>
+        {message && <p>{message}</p>}
+      </div>
 
-          <p>Priority: {task.priority}</p>
+      {loading ? (
+        <div className="emptyPage">
+          <p>Loading tasks...</p>
+        </div>
+      ) : tasks.length === 0 ? (
+        <div className="emptyPage">
+          <div>
+            <div className="emptyIcon">✓</div>
+            <h2>No tasks found</h2>
+            <p>
+              Enter a project ID to load its tasks.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="taskList">
+          {tasks.map((task) => (
+            <div className="taskCard" key={task.id}>
+              <div className="taskMain">
+                <div
+                  className={`taskTitle ${
+                    task.status === "DONE"
+                      ? "done"
+                      : ""
+                  }`}
+                >
+                  {task.title}
+                </div>
 
-          <select
-            value={task.status}
-            onChange={(e) => status(task.id, e.target.value)}
-          >
-            <option value="TODO">TODO</option>
-            <option value="IN_PROGRESS">IN PROGRESS</option>
-            <option value="IN_REVIEW">IN REVIEW</option>
-            <option value="DONE">DONE</option>
-          </select>
+                <div className="taskMeta">
+                  <span>{task.priority}</span>
+                  <span>{task.status}</span>
+                </div>
+              </div>
 
-          <button onClick={() => remove(task.id)}>Delete</button>
-        </section>
-      ))}
-    </main>
-  )
+              <select
+                value={task.status}
+                onChange={(event) =>
+                  handleStatusChange(
+                    task.id,
+                    event.target.value,
+                  )
+                }
+              >
+                <option value="TODO">TODO</option>
+                <option value="IN_PROGRESS">
+                  IN PROGRESS
+                </option>
+                <option value="IN_REVIEW">
+                  IN REVIEW
+                </option>
+                <option value="DONE">DONE</option>
+              </select>
+
+              <button
+                className="dangerButton"
+                onClick={() =>
+                  handleDelete(task.id)
+                }
+              >
+                Delete
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
-
-export default Tasks
